@@ -84,10 +84,10 @@ impl FromStr for ColumnLayout {
 #[derive(Debug, Clone)]
 enum ColumnMapping {
     Index(i16),
-    List(Vec<i16>),
-    Range(i16, i16),
-    InfinteRange(i16),
-    InclusiveRange(i16, i16),
+    List(Vec<i16>, String),
+    Range(i16, i16, String),
+    InfinteRange(i16, String),
+    InclusiveRange(i16, i16, String),
 }
 
 impl FromStr for ColumnMapping {
@@ -97,25 +97,27 @@ impl FromStr for ColumnMapping {
         if let Ok(v) = i16::from_str(s) {
             return Ok(ColumnMapping::Index(v));
         }
-        if s.contains(',') {
-            let conv: Result<Vec<i16>, _> = s.split(|c| c == ',').map(i16::from_str).collect();
+        let (t, sep) = s.split_once('>').unwrap_or((s, " "));
+        let sep = sep.to_string();
+        if t.contains(',') {
+            let conv: Result<Vec<i16>, _> = t.split(|c| c == ',').map(i16::from_str).collect();
             match conv {
-                Ok(v) => return Ok(ColumnMapping::List(v)),
+                Ok(v) => return Ok(ColumnMapping::List(v, sep)),
                 _ => return Err("Failed to parse list".to_string()),
             }
         }
         let range_re = Regex::new(r"^([+-]?\d+)(..=?)([+-]?\d+)?").unwrap();
-        if let Some(cap) = range_re.captures(s) {
+        if let Some(cap) = range_re.captures(t) {
             let from_i = i16::from_str(&cap[1]).map_err(|_| "Failed to parse from".to_string())?;
             let inclusive = &cap[2] == "..=";
             if cap.get(3) == None && !inclusive {
-                return Ok(ColumnMapping::InfinteRange(from_i));
+                return Ok(ColumnMapping::InfinteRange(from_i, sep));
             }
             let to_i = i16::from_str(&cap[3]).map_err(|_| "Failed to parse to ".to_string())?;
             if inclusive {
-                return Ok(ColumnMapping::InclusiveRange(from_i, to_i));
+                return Ok(ColumnMapping::InclusiveRange(from_i, to_i, sep));
             }
-            return Ok(ColumnMapping::Range(from_i, to_i));
+            return Ok(ColumnMapping::Range(from_i, to_i, sep));
         }
         return Err("Invalid column specifier".to_string());
     }
@@ -218,6 +220,10 @@ struct Args {
     ///     (([+-]\d+),)+([+-]\d+)    A list of columns
     ///     ([+-]\d+)..=?([+-]\d+)?   A range (rust range syntax) of columns
     ///
+    /// Optionally, after a non-single mapping a '>' character can be put,
+    /// the string after which will be used to join the columns. If this
+    /// is not specified, " " is used.
+    ///
     /// Example: TODO
     #[arg(
         short = 'c',
@@ -261,8 +267,6 @@ struct Args {
     ///     n     numeric, ascending
     ///     N     numeric, descending
     ///
-    /// Note: Numeric sorting will use the raw-byte values of non-numeric
-    /// characters
     ///
     /// Example: --sort-by '2n|1l'
     ///     Sorting is done numerically in ascending order, based on the second
