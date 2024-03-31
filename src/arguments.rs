@@ -84,24 +84,24 @@ impl FromStr for ColumnLayout {
 
 #[derive(Debug, Clone)]
 pub enum ColumnMapping {
-    Index(i16),
-    List(Vec<i16>, String),
-    Range(i16, i16, String),
-    InfinteRange(i16, String),
-    InclusiveRange(i16, i16, String),
+    Index(isize),
+    List(Vec<isize>, String),
+    Range(isize, isize, String),
+    InfinteRange(isize, String),
+    InclusiveRange(isize, isize, String),
 }
 
 impl FromStr for ColumnMapping {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Ok(v) = i16::from_str(s) {
+        if let Ok(v) = isize::from_str(s) {
             return Ok(ColumnMapping::Index(v));
         }
         let (t, sep) = s.split_once('>').unwrap_or((s, " "));
         let sep = sep.to_string();
         if t.contains(',') {
-            let conv: Result<Vec<i16>, _> = t.split(|c| c == ',').map(i16::from_str).collect();
+            let conv: Result<Vec<isize>, _> = t.split(|c| c == ',').map(isize::from_str).collect();
             match conv {
                 Ok(v) => return Ok(ColumnMapping::List(v, sep)),
                 _ => return Err("Failed to parse list".to_string()),
@@ -109,12 +109,13 @@ impl FromStr for ColumnMapping {
         }
         let range_re = Regex::new(r"^([+-]?\d+)(..=?)([+-]?\d+)?").unwrap();
         if let Some(cap) = range_re.captures(t) {
-            let from_i = i16::from_str(&cap[1]).map_err(|_| "Failed to parse from".to_string())?;
+            let from_i =
+                isize::from_str(&cap[1]).map_err(|_| "Failed to parse from".to_string())?;
             let inclusive = &cap[2] == "..=";
             if cap.get(3) == None && !inclusive {
                 return Ok(ColumnMapping::InfinteRange(from_i, sep));
             }
-            let to_i = i16::from_str(&cap[3]).map_err(|_| "Failed to parse to ".to_string())?;
+            let to_i = isize::from_str(&cap[3]).map_err(|_| "Failed to parse to ".to_string())?;
             if inclusive {
                 return Ok(ColumnMapping::InclusiveRange(from_i, to_i, sep));
             }
