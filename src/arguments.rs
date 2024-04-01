@@ -6,15 +6,13 @@ extern crate itertools;
 
 use clap::{arg, Parser};
 
-#[derive(clap::ValueEnum, Clone, Default, Debug)]
+#[derive(clap::ValueEnum, Clone, Default, Debug, PartialEq, Eq)]
 pub enum Decoration {
     #[default]
     #[clap(alias = "u")]
     UnderlineHeader,
     #[clap(alias = "n")]
     None,
-    #[clap(alias = "s")]
-    SurroundTopBottom,
     #[clap(alias = "f")]
     Full,
 }
@@ -24,7 +22,6 @@ impl fmt::Display for Decoration {
         match &self {
             Decoration::UnderlineHeader => write!(f, "underline-header"),
             Decoration::None => write!(f, "none"),
-            Decoration::SurroundTopBottom => write!(f, "surround-top-bottom"),
             Decoration::Full => write!(f, "full"),
         }
     }
@@ -127,22 +124,32 @@ impl FromStr for ColumnMapping {
 
 #[derive(Debug, Clone)]
 pub enum WidthSpecifier {
-    Break(u16),
-    Cut(u16),
-    Ellipsis(u16),
+    Indeterminate,
+    Break(usize),
+    Cut(usize),
+    Ellipsis(usize),
 }
 
 impl FromStr for WidthSpecifier {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s == "" {
+            return Ok(WidthSpecifier::Indeterminate);
+        }
         if s.len() >= 2 {
             let w = &s[0..s.len() - 1];
-            let n = u16::from_str(w).map_err(|_| "Failed to parse_width".to_string())?;
+            let n = usize::from_str(w).map_err(|_| "Failed to parse_width".to_string())?;
             match s.chars().last() {
                 Some('b') => return Ok(WidthSpecifier::Break(n)),
                 Some('c') => return Ok(WidthSpecifier::Cut(n)),
-                Some('e') => return Ok(WidthSpecifier::Ellipsis(n)),
+                Some('e') => {
+                    return if n >= 3 {
+                        Ok(WidthSpecifier::Ellipsis(n))
+                    } else {
+                        Err("Elipsis required a minimum width of 3".to_string())
+                    }
+                }
                 _ => {}
             }
         }
@@ -152,7 +159,7 @@ impl FromStr for WidthSpecifier {
 
 #[derive(Debug, Clone)]
 pub struct SortOrder {
-    pub column: u16,
+    pub column: usize,
     pub descending: bool,
     pub numeric: bool,
 }
@@ -163,7 +170,7 @@ impl FromStr for SortOrder {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.len() >= 2 {
             let w = &s[0..s.len() - 1];
-            let n = u16::from_str(w).map_err(|_| "Failed to parse_width".to_string())?;
+            let n = usize::from_str(w).map_err(|_| "Failed to parse_width".to_string())?;
             match s.chars().last() {
                 Some('l') => {
                     return Ok(SortOrder {
@@ -204,6 +211,7 @@ impl FromStr for SortOrder {
 #[command(version, about, long_about = None)]
 pub struct Args {
     /// Specify column headers. Each column header is separated by '|'
+    /// If not specified, the first row will be used for column headers.
     #[arg(
         short = 't',
         long,
@@ -305,7 +313,7 @@ pub struct Args {
     ///     c   Cut string
     ///     e   Cut string, but replace the last 3 visible characters by
     ///         ellipsis (...)
-    #[arg(short = 'w', long, verbatim_doc_comment, value_parser = clap::value_parser!(WidthSpecifier))]
+    #[arg(short = 'w', long, verbatim_doc_comment, value_delimiter = '|', value_parser = clap::value_parser!(WidthSpecifier))]
     pub fixed_width: Option<Vec<WidthSpecifier>>,
 
     /// How the table should look

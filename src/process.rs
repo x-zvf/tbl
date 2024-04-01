@@ -123,7 +123,7 @@ pub fn process(args: &Args, input: Box<dyn BufRead>) -> Vec<Vec<String>> {
         input_columns.sort_by(|a, b| sort_comparator(a, b));
     }
 
-    let mut output_columns = input_columns.iter_mut().map(|cols| {
+    let output_columns = input_columns.iter_mut().map(|cols| {
         if let Some(cms) = &args.columns {
             cms.iter()
                 .map(|cm| map_column(cm, cols))
