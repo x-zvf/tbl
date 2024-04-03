@@ -97,8 +97,8 @@ impl FromStr for ColumnMapping {
         }
         let (t, sep) = s.split_once('>').unwrap_or((s, " "));
         let sep = sep.to_string();
-        if t.contains(',') {
-            let conv: Result<Vec<isize>, _> = t.split(|c| c == ',').map(isize::from_str).collect();
+        if t.contains(';') {
+            let conv: Result<Vec<isize>, _> = t.split(|c| c == ';').map(isize::from_str).collect();
             match conv {
                 Ok(v) => return Ok(ColumnMapping::List(v, sep)),
                 _ => return Err("Failed to parse list".to_string()),
@@ -210,24 +210,24 @@ impl FromStr for SortOrder {
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub struct Args {
-    /// Specify column headers. Each column header is separated by '|'
+    /// Specify column headers. Each column header is separated by ','
     /// If not specified, the first row will be used for column headers.
     #[arg(
         short = 't',
         long,
         help = "Headers of columns",
-        value_delimiter = '|',
+        value_delimiter = ',',
         verbatim_doc_comment
     )]
     pub headers: Option<Vec<String>>,
 
     /// Specify which columns of the input should be mapped to which output
-    /// column. The mapping for each output column is separated by '|'.
+    /// column. The mapping for each output column is separated by ','.
     ///
     /// An output column can be mapped to:
     ///     ([+-]\d+)                 A single input column, negative indices
     ///                               count from the back.
-    ///     (([+-]\d+),)+([+-]\d+)    A list of columns
+    ///     (([+-]\d+);)+([+-]\d+)    A list of columns, separated by ';'
     ///     ([+-]\d+)..=?([+-]\d+)?   A range (rust range syntax) of columns
     ///
     /// Optionally, after a non-single mapping a '>' character can be put,
@@ -239,7 +239,7 @@ pub struct Args {
         short = 'c',
         long,
         help = "Column indices",
-        value_delimiter = '|',
+        value_delimiter = ',',
         value_parser = clap::value_parser!(ColumnMapping),
         verbatim_doc_comment
     )]
@@ -268,7 +268,7 @@ pub struct Args {
     pub sort: bool,
 
     /// Specify the keys by which the output should be sorted. Multiple levels
-    /// of sorting can be specified, delimited by '|'. Each sort level is a
+    /// of sorting can be specified, delimited by ','. Each sort level is a
     /// column number followed by the sort type ([+-]\d+)[lLnN]
     ///
     /// Sort type:
@@ -278,12 +278,12 @@ pub struct Args {
     ///     N     numeric, descending
     ///
     ///
-    /// Example: --sort-by '2n|1l'
+    /// Example: --sort-by '2n,1l'
     ///     Sorting is done numerically in ascending order, based on the second
     ///     column (zero-indexed). If the second column is equal, rows are
     ///     further sorted lexicographically, in ascending order by the first
     ///     column.
-    #[arg(long, value_delimiter = '|', verbatim_doc_comment, value_parser = clap::value_parser!(SortOrder))]
+    #[arg(long, value_delimiter = ',', verbatim_doc_comment, value_parser = clap::value_parser!(SortOrder))]
     pub sort_by: Option<Vec<SortOrder>>,
 
     /// Apply sort-by to OUTPUT instead of INPUT columns.
@@ -305,7 +305,7 @@ pub struct Args {
     pub collapse_delimiters: bool,
 
     /// Specify fixed sizes for columns. Each column declaration is delimited by
-    /// '|'. Each size is the width, a positive number, followed by the
+    /// ','. Each size is the width, a positive number, followed by the
     /// overflow specifier 'b','c','e', (\d+)[bce]
     ///
     /// Overflow specifiers:
@@ -313,7 +313,7 @@ pub struct Args {
     ///     c   Cut string
     ///     e   Cut string, but replace the last 3 visible characters by
     ///         ellipsis (...)
-    #[arg(short = 'w', long, verbatim_doc_comment, value_delimiter = '|', value_parser = clap::value_parser!(WidthSpecifier))]
+    #[arg(short = 'w', long, verbatim_doc_comment, value_delimiter = ',', value_parser = clap::value_parser!(WidthSpecifier))]
     pub fixed_width: Option<Vec<WidthSpecifier>>,
 
     /// How the table should look
