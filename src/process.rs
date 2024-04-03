@@ -123,6 +123,22 @@ pub fn process(args: &Args, input: Box<dyn BufRead>) -> Vec<Vec<String>> {
         input_columns.sort_by(|a, b| sort_comparator(a, b));
     }
 
+    let mut widths = vec![input_columns.iter().map(|x| x.len()).max().unwrap_or(0)];
+    if let Some(h) = &args.headers {
+        widths.push(h.len());
+    };
+    if let Some(c) = &args.columns {
+        widths.push(c.len());
+    };
+    if let Some(a) = &args.alignment {
+        widths.push(a.column_align.len());
+    };
+    if let Some(w) = &args.fixed_width {
+        widths.push(w.len());
+    };
+
+    let n_columns = widths.iter().min().unwrap();
+
     let output_columns = input_columns.iter_mut().map(|cols| {
         if let Some(cms) = &args.columns {
             cms.iter()
@@ -142,6 +158,11 @@ pub fn process(args: &Args, input: Box<dyn BufRead>) -> Vec<Vec<String>> {
 
     if args.sort && !args.sort_by_output {
         output_columns.sort_by(|a, b| sort_comparator(a, b));
+    }
+
+    println!("n cols: {}", n_columns);
+    for r in output_columns.iter_mut() {
+        r.drain(n_columns..);
     }
 
     output_columns
