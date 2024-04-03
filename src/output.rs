@@ -94,31 +94,14 @@ pub fn display(args: Args, rows: &Vec<Vec<String>>) {
     let header_underline: String = header_text
         .chars()
         .map(|c| match c {
-            '|' => '+',
+            '|' => '+', // FIXME: if a '|' is contained in the title text, it results in + being
+            // printed at the wrong place. Users shouldn't do that though
             _ => '-',
         })
         .collect();
     let print_top_bot = || {
         if args.decoration == Decoration::Full {
-            if header.len() >= 3 {
-                println!(
-                    "{}{}{}",
-                    if header_underline[0..1] == *"+" {
-                        '+'
-                    } else {
-                        '-'
-                    },
-                    "-".repeat(header_underline.len() - 2),
-                    if header_underline[header_underline.len() - 1..header_underline.len()] == *"+"
-                    {
-                        '+'
-                    } else {
-                        '-'
-                    }
-                )
-            } else {
-                println!("{}", "-".repeat(header_underline.len()))
-            }
+            println!("{}", "-".repeat(header_underline.len()))
         }
     };
     let print_underline = || {
