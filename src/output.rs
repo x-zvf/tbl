@@ -77,21 +77,7 @@ where
     }
 }
 
-pub fn display(args: Args, rows: &Vec<Vec<String>>) {
-    if rows.len() == 0 {
-        return;
-    }
-    let (header, data) = match args.headers {
-        Some(ref h) => (
-            h.iter()
-                .take(rows.get(1).unwrap_or(h).len())
-                .map(|x| x.clone())
-                .collect(),
-            &rows[..],
-        ),
-        None => (rows[0].clone(), &rows[1..]),
-    };
-
+fn calculate_column_widths(args: &Args, header: &Vec<String>, data: &[Vec<String>]) -> Vec<usize> {
     let mut column_widths = header
         .iter()
         .map(|h| h.chars().count())
@@ -117,6 +103,25 @@ pub fn display(args: Args, rows: &Vec<Vec<String>>) {
             };
         }
     }
+    column_widths
+}
+
+pub fn display(args: Args, rows: &Vec<Vec<String>>) {
+    if rows.len() == 0 {
+        return;
+    }
+    let (header, data) = match args.headers {
+        Some(ref h) => (
+            h.iter()
+                .take(rows.get(1).unwrap_or(h).len())
+                .map(|x| x.clone())
+                .collect(),
+            &rows[..],
+        ),
+        None => (rows[0].clone(), &rows[1..]),
+    };
+
+    let column_widths = calculate_column_widths(&args, &header, data);
 
     let header_text = format_row(&args, &column_widths, &header);
 
