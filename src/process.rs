@@ -105,25 +105,8 @@ fn map_column(mapping: &ColumnMapping, cols: &Vec<String>) -> String {
     }
 }
 
-#[allow(unstable_name_collisions)]
-pub fn process(args: &Args, input: Box<dyn BufRead>) -> Vec<Vec<String>> {
-    let sort_comparator = get_sort_comparator(&args.sort_by);
-
-    let mut input_columns = input
-        .lines()
-        .map(|l| l.unwrap())
-        .map(|l| {
-            l.split(&args.delimiter)
-                .map(|c| c.to_string())
-                .collect::<Vec<String>>()
-        })
-        .collect::<Vec<_>>();
-
-    if args.sort && !args.sort_by_output {
-        input_columns.sort_by(|a, b| sort_comparator(a, b));
-    }
-
-    let mut widths = vec![input_columns.iter().map(|x| x.len()).max().unwrap_or(0)];
+fn get_number_of_columns(args: &Args, input_length: usize) -> usize {
+    let mut widths = vec![input_length];
     if let Some(h) = &args.headers {
         widths.push(h.len());
     };
@@ -136,34 +119,54 @@ pub fn process(args: &Args, input: Box<dyn BufRead>) -> Vec<Vec<String>> {
     if let Some(w) = &args.fixed_width {
         widths.push(w.len());
     };
+    *widths.iter().min().unwrap()
+}
 
-    let n_columns = widths.iter().min().unwrap();
+#[allow(unstable_name_collisions)]
+pub fn process(args: &Args, input: Box<dyn BufRead>) -> Vec<Vec<String>> {
+    let sort_comparator = get_sort_comparator(&args.sort_by);
 
-    let output_columns = input_columns.iter_mut().map(|cols| {
+    let mut input_matrix = input
+        .lines()
+        .map(|l| l.unwrap())
+        .map(|l| {
+            l.split(&args.delimiter)
+                .map(|c| c.to_string())
+                .collect::<Vec<String>>()
+        })
+        .collect::<Vec<_>>();
+
+    if args.sort && !args.sort_by_output {
+        input_matrix.sort_by(&sort_comparator);
+    }
+
+    let n_columns = get_number_of_columns(
+        &args,
+        input_matrix.iter().map(|x| x.len()).max().unwrap_or(0),
+    );
+
+    let output_matrix = input_matrix.iter().map(|cols| {
         if let Some(cms) = &args.columns {
             cms.iter()
                 .map(|cm| map_column(cm, cols))
                 .collect::<Vec<_>>()
         } else {
-            // Skill issue: I can't for the life of make rust consume the values
-            // from input_columns
             cols.clone()
         }
     });
-    let mut output_columns = if args.unique {
-        output_columns.unique().collect::<Vec<Vec<_>>>()
+
+    let mut output_matrix: Vec<Vec<_>> = if args.unique {
+        output_matrix.unique().collect()
     } else {
-        output_columns.collect::<Vec<Vec<_>>>()
+        output_matrix.collect()
     };
 
-    if args.sort && !args.sort_by_output {
-        output_columns.sort_by(|a, b| sort_comparator(a, b));
+    if args.sort && args.sort_by_output {
+        output_matrix.sort_by(&sort_comparator);
     }
 
-    println!("n cols: {}", n_columns);
-    for r in output_columns.iter_mut() {
+    output_matrix.iter_mut().for_each(|r| {
         r.drain(n_columns..);
-    }
-
-    output_columns
+    });
+    output_matrix
 }
