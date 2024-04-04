@@ -44,7 +44,7 @@ impl Alignment {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ColumnLayout {
     pub column_align: Vec<Alignment>,
     pub delimiters: Vec<String>,
@@ -61,6 +61,9 @@ impl FromStr for ColumnLayout {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.len() == 0 {
+            return Err("May not be empty".to_string());
+        }
         let valid_chars = vec!['l', 'r', 'c', ' ', '|'];
         contains_only_valid(s, valid_chars).map_err(|c| format!("Invalid character: {}", c))?;
         let column_align = s
@@ -79,7 +82,7 @@ impl FromStr for ColumnLayout {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ColumnMapping {
     Index(isize),
     List(Vec<isize>, String),
@@ -104,13 +107,17 @@ impl FromStr for ColumnMapping {
                 _ => return Err("Failed to parse list".to_string()),
             }
         }
-        let range_re = Regex::new(r"^([+-]?\d+)(..=?)([+-]?\d+)?").unwrap();
+        let range_re = Regex::new(r"^([+-]?\d+)(..=?)([+-]?\d+)?$").unwrap();
         if let Some(cap) = range_re.captures(t) {
             let from_i =
                 isize::from_str(&cap[1]).map_err(|_| "Failed to parse from".to_string())?;
             let inclusive = &cap[2] == "..=";
-            if cap.get(3) == None && !inclusive {
-                return Ok(ColumnMapping::InfinteRange(from_i, sep));
+            if cap.get(3) == None {
+                if !inclusive {
+                    return Ok(ColumnMapping::InfinteRange(from_i, sep));
+                } else {
+                    return Err("Missing end of inclusive Range".to_string());
+                }
             }
             let to_i = isize::from_str(&cap[3]).map_err(|_| "Failed to parse to ".to_string())?;
             if inclusive {
@@ -122,7 +129,7 @@ impl FromStr for ColumnMapping {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum WidthSpecifier {
     Indeterminate,
     Break(usize),
@@ -140,6 +147,9 @@ impl FromStr for WidthSpecifier {
         if s.len() >= 2 {
             let w = &s[0..s.len() - 1];
             let n = usize::from_str(w).map_err(|_| "Failed to parse_width".to_string())?;
+            if n == 0 {
+                return Err("Width must be positive".to_string());
+            }
             match s.chars().last() {
                 Some('b') => return Ok(WidthSpecifier::Break(n)),
                 Some('c') => return Ok(WidthSpecifier::Cut(n)),
@@ -157,9 +167,9 @@ impl FromStr for WidthSpecifier {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SortOrder {
-    pub column: usize,
+    pub column: isize,
     pub descending: bool,
     pub numeric: bool,
 }
@@ -170,7 +180,7 @@ impl FromStr for SortOrder {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.len() >= 2 {
             let w = &s[0..s.len() - 1];
-            let n = usize::from_str(w).map_err(|_| "Failed to parse_width".to_string())?;
+            let n = isize::from_str(w).map_err(|_| "Failed to parse_width".to_string())?;
             match s.chars().last() {
                 Some('l') => {
                     return Ok(SortOrder {
@@ -242,7 +252,8 @@ pub struct Args {
         long,
         value_delimiter = ',',
         value_parser = clap::value_parser!(ColumnMapping),
-        verbatim_doc_comment
+        verbatim_doc_comment,
+        allow_hyphen_values=true,
     )]
     pub columns: Option<Vec<ColumnMapping>>,
 
@@ -262,7 +273,12 @@ pub struct Args {
     /// Example: -a 'l    c|| r' results in:
     /// 10000    2000|| 3000
     /// 40        50 ||   60
-    #[arg(short = 'l', long, verbatim_doc_comment, value_parser = clap::value_parser!(ColumnLayout))]
+    #[arg(
+        short = 'l',
+        long,
+        verbatim_doc_comment,
+        value_parser = clap::value_parser!(ColumnLayout)
+    )]
     pub layout: Option<ColumnLayout>,
 
     /// Specify fixed sizes for columns.
@@ -275,14 +291,20 @@ pub struct Args {
     ///     c   Cut string
     ///     e   Cut string, but replace the last 3 visible characters by
     ///         ellipsis (...)
-    #[arg(short = 'w', long, verbatim_doc_comment, value_delimiter = ',', value_parser = clap::value_parser!(WidthSpecifier))]
+    #[arg(
+        short = 'w',
+        long,
+        verbatim_doc_comment,
+        value_delimiter = ',',
+        value_parser = clap::value_parser!(WidthSpecifier)
+    )]
     pub fixed_width: Option<Vec<WidthSpecifier>>,
 
     /// How the table should look
     #[arg(long, default_value_t = Decoration::UnderlineHeader)]
     pub decoration: Decoration,
 
-    /// Do not use unicode characters for displaying table borders
+    /// Do not use Unicode characters for displaying table borders
     #[arg(short, long, default_value_t = false)]
     pub ascii: bool,
 
@@ -307,7 +329,13 @@ pub struct Args {
     ///     column (zero-indexed). If the second column is equal, rows are
     ///     further sorted lexicographically, in ascending order by the first
     ///     column.
-    #[arg(long, value_delimiter = ',', verbatim_doc_comment, value_parser = clap::value_parser!(SortOrder))]
+    #[arg(
+        long,
+        value_delimiter = ',',
+        verbatim_doc_comment,
+        value_parser = clap::value_parser!(SortOrder),
+        allow_hyphen_values=true,
+    )]
     pub sort_by: Option<Vec<SortOrder>>,
 
     /// Apply sort-by to OUTPUT instead of INPUT columns.
@@ -339,4 +367,111 @@ pub struct Args {
     /// The input file, default is STDIN
     #[arg()]
     pub file: Option<String>,
+}
+
+mod test {
+    use super::*;
+    #[test]
+    fn test_parser_column_mapping() {
+        assert!(ColumnMapping::from_str("").is_err());
+        assert!(ColumnMapping::from_str("1;").is_err());
+        assert!(ColumnMapping::from_str("1...10").is_err());
+        assert!(ColumnMapping::from_str("..10").is_err());
+        assert!(ColumnMapping::from_str("..").is_err());
+        assert!(ColumnMapping::from_str("10..=").is_err());
+        assert_eq!(
+            ColumnMapping::from_str("1").unwrap(),
+            ColumnMapping::Index(1)
+        );
+        assert_eq!(
+            ColumnMapping::from_str("1;22>").unwrap(),
+            ColumnMapping::List(vec![1, 22], "".to_string())
+        );
+        assert_eq!(
+            ColumnMapping::from_str("1;2;3;4").unwrap(),
+            ColumnMapping::List(vec![1, 2, 3, 4], " ".to_string())
+        );
+        assert_eq!(
+            ColumnMapping::from_str("1;2;-3;4> |  ").unwrap(),
+            ColumnMapping::List(vec![1, 2, -3, 4], " |  ".to_string())
+        );
+        assert_eq!(
+            ColumnMapping::from_str("1..10> |  ").unwrap(),
+            ColumnMapping::Range(1, 10, " |  ".to_string())
+        );
+        assert_eq!(
+            ColumnMapping::from_str("1..").unwrap(),
+            ColumnMapping::InfinteRange(1, " ".to_string())
+        );
+        assert_eq!(
+            ColumnMapping::from_str("-3..=2>dd").unwrap(),
+            ColumnMapping::InclusiveRange(-3, 2, "dd".to_string())
+        );
+    }
+    #[test]
+    fn test_parser_column_layout() {
+        assert!(ColumnLayout::from_str("").is_err());
+        assert_eq!(
+            ColumnLayout::from_str("l || r ").unwrap(),
+            ColumnLayout {
+                column_align: vec![Alignment::Left, Alignment::Right],
+                delimiters: vec!["".to_string(), " || ".to_string(), " ".to_string()],
+            }
+        );
+    }
+    #[test]
+    fn test_parser_width_specifier() {
+        assert!(WidthSpecifier::from_str("-3b").is_err());
+        assert!(WidthSpecifier::from_str("00000c").is_err());
+        assert!(WidthSpecifier::from_str("2e").is_err());
+        assert!(WidthSpecifier::from_str("10").is_err());
+        assert_eq!(
+            WidthSpecifier::from_str("").unwrap(),
+            WidthSpecifier::Indeterminate
+        );
+        assert_eq!(
+            WidthSpecifier::from_str("10b").unwrap(),
+            WidthSpecifier::Break(10)
+        );
+        assert_eq!(
+            WidthSpecifier::from_str("3c").unwrap(),
+            WidthSpecifier::Cut(3)
+        );
+        assert_eq!(
+            WidthSpecifier::from_str("3e").unwrap(),
+            WidthSpecifier::Ellipsis(3)
+        );
+    }
+    #[test]
+    fn test_parser_sort_order() {
+        assert!(SortOrder::from_str("").is_err());
+        assert!(SortOrder::from_str("3x").is_err());
+        assert!(SortOrder::from_str("3").is_err());
+        assert!(SortOrder::from_str("-3").is_err());
+        assert!(SortOrder::from_str("nnn").is_err());
+        assert_eq!(
+            SortOrder::from_str("-3L").unwrap(),
+            SortOrder {
+                column: -3,
+                numeric: false,
+                descending: true
+            }
+        );
+        assert_eq!(
+            SortOrder::from_str("13N").unwrap(),
+            SortOrder {
+                column: 13,
+                numeric: true,
+                descending: true
+            }
+        );
+        assert_eq!(
+            SortOrder::from_str("123l").unwrap(),
+            SortOrder {
+                column: 123,
+                numeric: false,
+                descending: false
+            }
+        );
+    }
 }

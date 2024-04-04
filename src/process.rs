@@ -20,8 +20,12 @@ fn get_sort_comparator(
                 numeric: false,
             }]);
         for cc in so {
-            let ac = a.get(cc.column as usize).unwrap_or(&empty_string);
-            let bc = b.get(cc.column as usize).unwrap_or(&empty_string);
+            let ac = a
+                .get(absolute_index(a.len(), &cc.column))
+                .unwrap_or(&empty_string);
+            let bc = b
+                .get(absolute_index(b.len(), &cc.column))
+                .unwrap_or(&empty_string);
             let cmpres = if cc.numeric {
                 let an = i64::from_str(ac).unwrap_or(0);
                 let bn = i64::from_str(bc).unwrap_or(0);

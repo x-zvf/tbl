@@ -122,17 +122,15 @@ pub fn display(args: Args, rows: &Vec<Vec<String>>) {
     };
 
     let column_widths = calculate_column_widths(&args, &header, data);
-
     let header_text = format_row(&args, &column_widths, &header);
-
     let header_underline = replace_with_if(
         &args.ascii,
         &header_text,
         |c| {
+            // FIXME: if a '|' is contained in the title text, it results in + being
+            // printed at the wrong place. Users shouldn't do that though
             match c {
                 '|' => '+',
-                // FIXME: if a '|' is contained in the title text, it results in + being
-                // printed at the wrong place. Users shouldn't do that though
                 _ => '-',
             }
         },
