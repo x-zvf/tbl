@@ -290,6 +290,11 @@ pub struct Args {
     #[arg(long)]
     pub sort_by_output: bool,
 
+    /// Ignore the first line when sorting.
+    /// This is useful, if the first row contains column headers.
+    #[arg(long)]
+    pub sort_ignore_first: bool,
+
     /// Remove duplicate lines from output. Duplicate removal is done based on
     /// the OUTPUT columns
     #[arg(short = 'u', long)]

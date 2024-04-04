@@ -1,0 +1,13 @@
+id,foo,A very long header column,baz
+0,1000,Gamma,100000000000
+1,,Beta,2000000000
+2,2002020,smol,300000000
+3,9,zulu,40000000
+4,0,Yankee,5000000
+5,,Zulu,600000
+6,0000,70000
+7,,Delta,800
+8,,Alpha,90
+9,,,1
+10,938,Epsilon,-49
+11,69,Xi,-30

@@ -62,7 +62,13 @@ pub fn display(args: Args, rows: &Vec<Vec<String>>) {
         return;
     }
     let (header, data) = match args.headers {
-        Some(ref h) => (h.clone(), &rows[..]),
+        Some(ref h) => (
+            h.iter()
+                .take(rows.get(1).unwrap_or(h).len())
+                .map(|x| x.clone())
+                .collect(),
+            &rows[..],
+        ),
         None => (rows[0].clone(), &rows[1..]),
     };
 
@@ -90,7 +96,6 @@ pub fn display(args: Args, rows: &Vec<Vec<String>>) {
     }
 
     let header_text = format_row(&args, &column_widths, &header);
-
     let header_underline: String = header_text
         .chars()
         .map(|c| match c {
@@ -99,23 +104,19 @@ pub fn display(args: Args, rows: &Vec<Vec<String>>) {
             _ => '-',
         })
         .collect();
-    let print_top_bot = || {
-        if args.decoration == Decoration::Full {
-            println!("{}", "-".repeat(header_underline.len()))
-        }
-    };
-    let print_underline = || {
-        if args.decoration != Decoration::None {
-            println!("{}", header_underline);
-        }
-    };
 
-    print_top_bot();
+    if args.decoration == Decoration::Full {
+        println!("{}", "-".repeat(header_underline.len()))
+    }
     println!("{}", header_text);
-    print_underline();
+    if args.decoration != Decoration::None {
+        println!("{}", header_underline);
+    }
     for row in data {
         println!("{}", format_row(&args, &column_widths, row));
     }
 
-    print_top_bot();
+    if args.decoration == Decoration::Full {
+        println!("{}", "-".repeat(header_underline.len()))
+    }
 }

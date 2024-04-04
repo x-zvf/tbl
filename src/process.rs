@@ -137,7 +137,11 @@ pub fn process(args: &Args, input: Box<dyn BufRead>) -> Vec<Vec<String>> {
         .collect::<Vec<_>>();
 
     if args.sort && !args.sort_by_output {
-        input_matrix.sort_by(&sort_comparator);
+        if args.sort_ignore_first {
+            input_matrix[1..].sort_by(&sort_comparator);
+        } else {
+            input_matrix.sort_by(&sort_comparator);
+        }
     }
 
     let n_columns = get_number_of_columns(
@@ -162,11 +166,18 @@ pub fn process(args: &Args, input: Box<dyn BufRead>) -> Vec<Vec<String>> {
     };
 
     if args.sort && args.sort_by_output {
-        output_matrix.sort_by(&sort_comparator);
+        if args.sort_ignore_first {
+            output_matrix[1..].sort_by(&sort_comparator);
+        } else {
+            output_matrix.sort_by(&sort_comparator);
+        }
     }
 
     output_matrix.iter_mut().for_each(|r| {
-        r.drain(n_columns..);
+        r.drain(usize::min(n_columns, r.len())..);
+        while r.len() < n_columns {
+            r.push("".to_string())
+        }
     });
     output_matrix
 }
