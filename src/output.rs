@@ -3,11 +3,11 @@ use itertools::Itertools;
 use crate::arguments::*;
 
 fn align_and_trim(s: &String, align: &Alignment, w: usize, spec: &WidthSpecifier) -> String {
-    let br = if s.len() <= w {
+    let br = if s.chars().count() <= w {
         s.clone()
     } else {
         match spec {
-            WidthSpecifier::Indeterminate => panic!("s.len() should be <= w"),
+            WidthSpecifier::Indeterminate => panic!("s.chars().count() should be <= w"),
             WidthSpecifier::Break(_) => s[..w].to_string(),
             WidthSpecifier::Cut(_) => s[..w].to_string(),
             WidthSpecifier::Ellipsis(_) => s[..w - 3].to_string() + "...",
@@ -65,26 +65,17 @@ pub fn format_row(args: &Args, column_widths: &Vec<usize>, row: &Vec<String>) ->
     }
 }
 
-/*
-fn line_adjacent(to: &String, ascii: bool, below: bool) -> String {
-    let mut res = "".to_string();
-    if to.len() < 2 {
-        res = "\u{2500}".repeat(to.len());
+fn replace_with_if<FA, FB>(cond: &bool, s: &String, fa: FA, fb: FB) -> String
+where
+    FA: FnMut(char) -> char,
+    FB: FnMut(char) -> char,
+{
+    if *cond {
+        s.chars().map(fa).collect()
+    } else {
+        s.chars().map(fb).collect()
     }
-
-    if ascii {
-        res = res
-            .chars()
-            .map(|c| match c {
-                '\u{2500}' => '-',
-                '\u{2502}' => '|',
-                '\u{250c}' | '\u{2510}' | '\u{2514}' | '\u{2518}' | '\u{251c}' | '\u{2524}' => '+',
-                x => x,
-            })
-            .collect();
-    }
-    res
-}*/
+}
 
 pub fn display(args: Args, rows: &Vec<Vec<String>>) {
     if rows.len() == 0 {
@@ -128,95 +119,70 @@ pub fn display(args: Args, rows: &Vec<Vec<String>>) {
     }
 
     let header_text = format_row(&args, &column_widths, &header);
-    let header_underline: String = header_text
-        .chars()
-        .map(|c| {
-            if args.ascii {
-                match c {
-                    '|' => '+',
-                    // FIXME: if a '|' is contained in the title text, it results in + being
-                    // printed at the wrong place. Users shouldn't do that though
-                    _ => '-',
-                }
-            } else {
-                match c {
-                    '\u{2502}' => '\u{253c}',
-                    _ => '\u{2500}',
-                }
+
+    let header_underline = replace_with_if(
+        &args.ascii,
+        &header_text,
+        |c| {
+            match c {
+                '|' => '+',
+                // FIXME: if a '|' is contained in the title text, it results in + being
+                // printed at the wrong place. Users shouldn't do that though
+                _ => '-',
             }
-        })
-        .collect();
-    let header_overline = if args.ascii {
-        header_underline.clone()
-    } else {
-        header_underline
-            .chars()
-            .map(|c| match c {
-                '\u{253c}' => '\u{252c}',
-                x => x,
-            })
-            .collect()
-    };
-    let footer_line = if args.ascii {
-        header_underline.clone()
-    } else {
-        header_underline
-            .chars()
-            .map(|c| match c {
-                '\u{253c}' => '\u{2534}',
-                x => x,
-            })
-            .collect()
-    };
-    //let header_underline_len = header_underline.chars().count();
-    if args.decoration == Decoration::Full {
+        },
+        |c| match c {
+            '\u{2502}' => '\u{253c}',
+            _ => '\u{2500}',
+        },
+    );
+    let header_overline = replace_with_if(
+        &args.ascii,
+        &header_underline,
+        |c| c,
+        |c| match c {
+            '\u{253c}' => '\u{252c}',
+            x => x,
+        },
+    );
+    let footer_line = replace_with_if(
+        &args.ascii,
+        &header_underline,
+        |c| c,
+        |c| match c {
+            '\u{253c}' => '\u{2534}',
+            x => x,
+        },
+    );
+    let print_a_u = |al, ar, ul, ur, s| {
         if args.ascii {
-            println!("+{}+", header_overline);
+            println!("{}{}{}", al, s, ar);
         } else {
-            println!("\u{250C}{}\u{2510}", header_overline);
+            println!("{}{}{}", ul, s, ur);
         }
-    }
+    };
+    let print_f_a_u = |al, ar, ul, ur, s| {
+        if args.decoration == Decoration::Full {
+            print_a_u(al, ar, ul, ur, s);
+        } else {
+            println!("{}", s);
+        }
+    };
+
     if args.decoration == Decoration::Full {
-        if args.ascii {
-            println!("|{}|", header_text);
-        } else {
-            println!("\u{2502}{}\u{2502}", header_text);
-        }
-    } else {
-        println!("{}", header_text);
+        print_a_u("+", "+", "\u{250c}", "\u{2510}", header_overline);
     }
+    print_f_a_u("|", "|", "\u{2502}", "\u{2502}", header_text);
 
     if args.decoration != Decoration::None {
-        if args.decoration == Decoration::Full {
-            if args.ascii {
-                println!("+{}+", header_underline);
-            } else {
-                println!("\u{251c}{}\u{2524}", header_underline);
-            }
-        } else {
-            println!("{}", header_underline);
-        }
+        print_f_a_u("+", "+", "\u{251c}", "\u{2524}", header_underline);
     }
     for row in data {
         let t = format_row(&args, &column_widths, row);
-        if args.decoration == Decoration::Full {
-            if args.ascii {
-                println!("|{}|", t);
-            } else {
-                println!("\u{2502}{}\u{2502}", t);
-            }
-        } else {
-            println!("{}", t);
-        }
+        print_f_a_u("|", "|", "\u{2502}", "\u{2502}", t);
     }
 
-    if args.decoration != Decoration::None {
-        if args.decoration == Decoration::Full {
-            if args.ascii {
-                println!("+{}+", footer_line);
-            } else {
-                println!("\u{2514}{}\u{2518}", footer_line);
-            }
-        }
+    if args.decoration == Decoration::Full {
+        print_a_u("+", "+", "\u{2514}", "\u{2518}", footer_line);
     }
 }
