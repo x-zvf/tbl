@@ -210,8 +210,9 @@ impl FromStr for SortOrder {
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub struct Args {
-    /// Specify column headers. Each column header is separated by ','
-    /// If not specified, the first row will be used for column headers.
+    /// Specify column headers
+    /// Each column header is separated by ',' If not specified, the first row
+    /// will be used for column headers.
     #[arg(
         short = 't',
         long,
@@ -221,8 +222,9 @@ pub struct Args {
     )]
     pub headers: Option<Vec<String>>,
 
-    /// Specify which columns of the input should be mapped to which output
-    /// column. The mapping for each output column is separated by ','.
+    /// Specify input should be mapped to which output columns.
+    ///
+    /// The mapping for each output column is separated by ','.
     ///
     /// An output column can be mapped to:
     ///     ([+-]\d+)                 A single input column, negative indices
@@ -238,7 +240,6 @@ pub struct Args {
     #[arg(
         short = 'c',
         long,
-        help = "Column indices",
         value_delimiter = ',',
         value_parser = clap::value_parser!(ColumnMapping),
         verbatim_doc_comment
@@ -246,6 +247,7 @@ pub struct Args {
     pub columns: Option<Vec<ColumnMapping>>,
 
     /// Specify column alignment and vertical separators.
+    ///
     /// Columns can be aligned to the left, to the right, or centered, which can
     /// be specified by 'l', 'r' or 'c' respectively.
     ///
@@ -260,16 +262,38 @@ pub struct Args {
     /// Example: -a 'l    c|| r' results in:
     /// 10000    2000|| 3000
     /// 40        50 ||   60
-    #[arg(short = 'a', long, verbatim_doc_comment, value_parser = clap::value_parser!(ColumnLayout))]
-    pub alignment: Option<ColumnLayout>,
+    #[arg(short = 'l', long, verbatim_doc_comment, value_parser = clap::value_parser!(ColumnLayout))]
+    pub layout: Option<ColumnLayout>,
+
+    /// Specify fixed sizes for columns.
+    ///
+    /// Each column declaration is delimited by ','. Each size is the width, a
+    /// positive number, followed by the overflow specifier 'b','c', or 'e'.
+    ///
+    /// Overflow specifiers:
+    ///     b   Break table layout
+    ///     c   Cut string
+    ///     e   Cut string, but replace the last 3 visible characters by
+    ///         ellipsis (...)
+    #[arg(short = 'w', long, verbatim_doc_comment, value_delimiter = ',', value_parser = clap::value_parser!(WidthSpecifier))]
+    pub fixed_width: Option<Vec<WidthSpecifier>>,
+
+    /// How the table should look
+    #[arg(long, default_value_t = Decoration::UnderlineHeader)]
+    pub decoration: Decoration,
+
+    /// Do not use unicode characters for displaying table borders
+    #[arg(short, long, default_value_t = false)]
+    pub ascii: bool,
 
     /// Sort the output, as specified by the rules of --sort-by
     #[arg(short = 's', long)]
     pub sort: bool,
 
-    /// Specify the keys by which the output should be sorted. Multiple levels
-    /// of sorting can be specified, delimited by ','. Each sort level is a
-    /// column number followed by the sort type ([+-]\d+)[lLnN]
+    /// Specify the keys by which the output should be sorted.
+    ///
+    /// Multiple levels of sorting can be specified, delimited by ','. Each sort
+    /// level is a column number followed by the sort type ([+-]\d+)[lLnN]
     ///
     /// Sort type:
     ///     l     lexicographic, ascending
@@ -291,12 +315,14 @@ pub struct Args {
     pub sort_by_output: bool,
 
     /// Ignore the first line when sorting.
+    ///
     /// This is useful, if the first row contains column headers.
     #[arg(long)]
     pub sort_ignore_first: bool,
 
-    /// Remove duplicate lines from output. Duplicate removal is done based on
-    /// the OUTPUT columns
+    /// Remove duplicate lines from output.
+    ///
+    /// Duplicate removal is done based on the OUTPUT columns
     #[arg(short = 'u', long)]
     pub unique: bool,
 
@@ -305,25 +331,10 @@ pub struct Args {
     pub delimiter: String,
 
     /// Collapse a sequence of multiple delimiters in a row into a single one.
+    ///
     /// By default, empty columns are created instead.
     #[arg(short = 'D', long, default_value_t = false)]
     pub collapse_delimiters: bool,
-
-    /// Specify fixed sizes for columns. Each column declaration is delimited by
-    /// ','. Each size is the width, a positive number, followed by the
-    /// overflow specifier 'b','c','e', (\d+)[bce]
-    ///
-    /// Overflow specifiers:
-    ///     b   Break table layout
-    ///     c   Cut string
-    ///     e   Cut string, but replace the last 3 visible characters by
-    ///         ellipsis (...)
-    #[arg(short = 'w', long, verbatim_doc_comment, value_delimiter = ',', value_parser = clap::value_parser!(WidthSpecifier))]
-    pub fixed_width: Option<Vec<WidthSpecifier>>,
-
-    /// How the table should look
-    #[arg(long, default_value_t = Decoration::UnderlineHeader)]
-    pub decoration: Decoration,
 
     /// The input file, default is STDIN
     #[arg()]

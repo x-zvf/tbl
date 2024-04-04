@@ -2,6 +2,7 @@ use std::cmp::Ordering;
 use std::io::BufRead;
 extern crate itertools;
 use itertools::Itertools;
+use std::process::exit;
 use std::str::FromStr;
 
 use crate::arguments::*;
@@ -113,7 +114,7 @@ fn get_number_of_columns(args: &Args, input_length: usize) -> usize {
     if let Some(c) = &args.columns {
         widths.push(c.len());
     };
-    if let Some(a) = &args.alignment {
+    if let Some(a) = &args.layout {
         widths.push(a.column_align.len());
     };
     if let Some(w) = &args.fixed_width {
@@ -135,6 +136,9 @@ pub fn process(args: &Args, input: Box<dyn BufRead>) -> Vec<Vec<String>> {
                 .collect::<Vec<String>>()
         })
         .collect::<Vec<_>>();
+    if input_matrix.len() == 0 {
+        exit(0);
+    }
 
     if args.sort && !args.sort_by_output {
         if args.sort_ignore_first {
