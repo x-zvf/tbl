@@ -370,6 +370,7 @@ pub struct Args {
 }
 
 mod test {
+    #[allow(unused_imports)]
     use super::*;
     #[test]
     fn test_parser_column_mapping() {

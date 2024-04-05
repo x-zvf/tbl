@@ -63,7 +63,7 @@ fn absolute_index(le: usize, idx: &isize) -> usize {
 }
 
 fn absolute_index_slice(le: usize, idx: &isize) -> usize {
-    if *idx > 0 {
+    if *idx >= 0 {
         *idx as usize
     } else {
         isize::max(le as isize + *idx, 0) as usize
@@ -110,6 +110,22 @@ fn map_column(mapping: &ColumnMapping, cols: &Vec<String>) -> String {
     }
 }
 
+fn read_inputs(delimiter: &String, input: Box<dyn BufRead>) -> Vec<Vec<String>> {
+    let input_matrix = input
+        .lines()
+        .map(|l| l.unwrap())
+        .map(|l| {
+            l.split(delimiter)
+                .map(|c| c.to_string())
+                .collect::<Vec<String>>()
+        })
+        .collect::<Vec<_>>();
+    if input_matrix.len() == 0 {
+        exit(0);
+    }
+    input_matrix
+}
+
 fn get_number_of_columns(args: &Args, input_length: usize) -> usize {
     let mut widths = vec![input_length];
     if let Some(h) = &args.headers {
@@ -131,15 +147,7 @@ fn get_number_of_columns(args: &Args, input_length: usize) -> usize {
 pub fn process(args: &Args, input: Box<dyn BufRead>) -> Vec<Vec<String>> {
     let sort_comparator = get_sort_comparator(&args.sort_by);
 
-    let mut input_matrix = input
-        .lines()
-        .map(|l| l.unwrap())
-        .map(|l| {
-            l.split(&args.delimiter)
-                .map(|c| c.to_string())
-                .collect::<Vec<String>>()
-        })
-        .collect::<Vec<_>>();
+    let mut input_matrix = read_inputs(&args.delimiter, input);
     if input_matrix.len() == 0 {
         exit(0);
     }
@@ -188,4 +196,83 @@ pub fn process(args: &Args, input: Box<dyn BufRead>) -> Vec<Vec<String>> {
         }
     });
     output_matrix
+}
+
+mod test {
+    #[allow(unused_imports)]
+    use super::*;
+
+    #[test]
+    fn test_sort_comparator() {
+        let order = Some(vec![
+            SortOrder {
+                column: 0,
+                numeric: true,
+                descending: true,
+            },
+            SortOrder {
+                column: -1,
+                numeric: false,
+                descending: false,
+            },
+        ]);
+        let sc1 = get_sort_comparator(&order);
+        assert_eq!(
+            sc1(&vec!["1000".to_string()], &vec!["200".to_string()]),
+            Ordering::Less
+        );
+        assert_eq!(
+            sc1(&vec!["40".to_string()], &vec!["9".to_string()]),
+            Ordering::Less
+        );
+        assert_eq!(
+            sc1(
+                &vec!["a".to_string(), "40".to_string()],
+                &vec!["b".to_string(), "9".to_string()]
+            ),
+            Ordering::Less
+        );
+        assert_eq!(
+            sc1(
+                &vec!["-03".to_string(), "Charlie".to_string()],
+                &vec!["-3".to_string(), "Bravo".to_string()]
+            ),
+            Ordering::Greater
+        );
+        assert_eq!(
+            sc1(
+                &vec!["-0".to_string(), "Foo".to_string()],
+                &vec!["0".to_string(), "Foo".to_string()]
+            ),
+            Ordering::Equal
+        );
+    }
+
+    #[test]
+    fn test_absolute_index() {
+        assert_eq!(absolute_index(1, &0), 0);
+        assert_eq!(absolute_index(10, &9), 9);
+        assert_eq!(absolute_index(10, &10), 10); //OOB
+        assert_eq!(absolute_index(10, &-1), 9);
+        assert_eq!(absolute_index(10, &-4), 6);
+        assert_eq!(absolute_index(10, &-10), 0);
+        assert_eq!(absolute_index(10, &-1337), usize::max_value());
+        assert_eq!(absolute_index(0, &-1337), usize::max_value());
+    }
+    #[test]
+    fn test_absolute_index_slice() {
+        let foo = vec![1, 2, 3, 4, 5, 6, 7];
+        assert_eq!(foo[..absolute_index_slice(7, &0)], foo[0..0]);
+        assert_eq!(foo[..absolute_index_slice(7, &1)], foo[0..1]);
+        assert_eq!(foo[..absolute_index_slice(7, &-19)], foo[0..0]);
+        assert_eq!(foo[..absolute_index_slice(7, &-3)], foo[0..4]);
+        assert_eq!(
+            foo[absolute_index_slice(7, &-5)..absolute_index(7, &-3)],
+            foo[2..4]
+        );
+        assert_eq!(
+            foo[absolute_index_slice(7, &-4)..absolute_index(7, &7)],
+            foo[3..7]
+        );
+    }
 }
