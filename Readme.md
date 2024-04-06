@@ -1,4 +1,4 @@
-# tbl (tabulate) - Make pretty tables in the command line
+# tbl (tabulate) - Make Pretty Tables in the Terminal
 ---
 
 Tbl enables you to quickly format textual data (e.g. CSVs) into tables.
