@@ -246,7 +246,13 @@ pub struct Args {
     /// the string after which will be used to join the columns. If this
     /// is not specified, " " is used.
     ///
-    /// Example: TODO
+    /// Example: -c '3,0..=2>/,-3;5;4,-2..'
+    /// The 3rd (zero-indexed) column should become the 0th, columns 0,1,2
+    /// should be joined together by '/' to create the first column, the 3rd-to
+    /// -last column and columns 5 and 4 joined by ' ' will be the second, and
+    /// the second-to-last and last columns joined by ' ' will be the third
+    /// column.
+    ///
     #[arg(
         short = 'c',
         long,
