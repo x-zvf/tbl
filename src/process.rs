@@ -64,7 +64,14 @@ fn absolute_index(le: usize, idx: &isize) -> usize {
 
 fn absolute_index_slice(le: usize, idx: &isize) -> usize {
     if *idx >= 0 {
-        *idx as usize
+        usize::min(*idx as usize, le)
+    } else {
+        isize::max(le as isize + *idx, 0) as usize
+    }
+}
+fn absolute_index_inclusive_slice(le: usize, idx: &isize) -> usize {
+    if *idx >= 0 {
+        usize::min(*idx as usize, le - 1)
     } else {
         isize::max(le as isize + *idx, 0) as usize
     }
@@ -102,7 +109,7 @@ fn map_column(mapping: &ColumnMapping, cols: &Vec<String>) -> String {
             .map(|x| x.clone())
             .collect(),
         ColumnMapping::InclusiveRange(f, t, j) => cols
-            [absolute_index_slice(cols.len(), f)..=absolute_index_slice(cols.len(), t)]
+            [absolute_index_slice(cols.len(), f)..=absolute_index_inclusive_slice(cols.len(), t)]
             .iter()
             .intersperse(&j)
             .map(|x| x.clone())
@@ -264,6 +271,8 @@ mod test {
         let foo = vec![1, 2, 3, 4, 5, 6, 7];
         assert_eq!(foo[..absolute_index_slice(7, &0)], foo[0..0]);
         assert_eq!(foo[..absolute_index_slice(7, &1)], foo[0..1]);
+        assert_eq!(foo[..absolute_index_slice(7, &1000)], foo[0..7]);
+        assert_eq!(foo[..=absolute_index_inclusive_slice(7, &1000)], foo[0..7]);
         assert_eq!(foo[..absolute_index_slice(7, &-19)], foo[0..0]);
         assert_eq!(foo[..absolute_index_slice(7, &-3)], foo[0..4]);
         assert_eq!(
@@ -273,6 +282,72 @@ mod test {
         assert_eq!(
             foo[absolute_index_slice(7, &-4)..absolute_index(7, &7)],
             foo[3..7]
+        );
+    }
+
+    #[test]
+    fn test_map_column() {
+        let col = vec![
+            "a".to_string(),
+            "b".to_string(),
+            "c".to_string(),
+            "1".to_string(),
+            "2".to_string(),
+            "3".to_string(),
+        ];
+        assert_eq!(map_column(&ColumnMapping::Index(34), &col), "");
+        assert_eq!(map_column(&ColumnMapping::Index(2), &col), "c");
+        assert_eq!(map_column(&ColumnMapping::Index(-2), &col), "2");
+        assert_eq!(map_column(&ColumnMapping::Index(0), &col), "a");
+
+        assert_eq!(
+            map_column(&ColumnMapping::List(vec![1, 0, -2], ",".to_string()), &col),
+            "b,a,2"
+        );
+        assert_eq!(
+            map_column(&ColumnMapping::List(vec![], ",".to_string()), &col),
+            ""
+        );
+
+        assert_eq!(
+            map_column(&ColumnMapping::Range(-20, 30, ",".to_string()), &col),
+            "a,b,c,1,2,3"
+        );
+        assert_eq!(
+            map_column(&ColumnMapping::Range(2, 4, ",".to_string()), &col),
+            "c,1"
+        );
+        assert_eq!(
+            map_column(&ColumnMapping::Range(2, 5, ",".to_string()), &col),
+            "c,1,2"
+        );
+        assert_eq!(
+            map_column(
+                &ColumnMapping::InclusiveRange(-20, 30, ",".to_string()),
+                &col
+            ),
+            "a,b,c,1,2,3"
+        );
+        assert_eq!(
+            map_column(&ColumnMapping::InclusiveRange(2, 4, ",".to_string()), &col),
+            "c,1,2"
+        );
+        assert_eq!(
+            map_column(&ColumnMapping::InclusiveRange(2, 5, ",".to_string()), &col),
+            "c,1,2,3"
+        );
+
+        assert_eq!(
+            map_column(&ColumnMapping::InfinteRange(2, ",".to_string()), &col),
+            "c,1,2,3"
+        );
+        assert_eq!(
+            map_column(&ColumnMapping::InfinteRange(-3, ",".to_string()), &col),
+            "1,2,3"
+        );
+        assert_eq!(
+            map_column(&ColumnMapping::InfinteRange(-3000, ",".to_string()), &col),
+            "a,b,c,1,2,3"
         );
     }
 }
